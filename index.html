@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#1e130c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ChordBook">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>ChordBook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/home.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="logo">🎸 Chord<b>Book</b></div>
+  <div class="user">
+    <button type="button" class="btn-ghost" id="exportBtn" title="Download all your songs as a backup file (to move them to your phone)">⬇ Export</button>
+    <label class="btn-ghost file" title="Load songs from a ChordBook backup file">⬆ Import<input type="file" id="importFile" accept=".json,application/json" hidden></label>
+    <span class="offline-badge" id="netBadge">📴 Offline app</span>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ============ Sidebar: saved songs ============ -->
+  <aside class="sidebar">
+    <button class="btn-amber full" id="newSongBtn">＋ New Song</button>
+    <input type="search" id="songSearch" class="search" placeholder="Search my songs…">
+    <h3>My Songs <span id="songCount"></span></h3>
+    <ul id="songList" class="song-list"></ul>
+
+    <h3>Setlists <span id="setlistCount"></span></h3>
+    <button type="button" class="btn-ghost full-ghost" id="newSetlistBtn">＋ New setlist</button>
+    <ul id="setlistList" class="song-list setlists"></ul>
+  </aside>
+
+  <!-- ============ Editor ============ -->
+  <main class="editor">
+
+    <!-- Song header: title, artist, keys -->
+    <section class="song-head">
+      <div class="title-row">
+        <input type="text" id="title" class="title-input" placeholder="Song title…" list="libraryList" autocomplete="off" maxlength="150">
+        <datalist id="libraryList"></datalist>
+        <button type="button" class="btn-ghost import-btn" id="importBtn" title="Paste a link or the chord sheet text to fill the sections">📥 Import chords</button>
+      </div>
+      <input type="text" id="artist" class="artist-input" placeholder="Artist (optional)" maxlength="150">
+
+      <div class="key-bar">
+        <div class="key-box">
+          <label for="originalKey">Original Key</label>
+          <select id="originalKey" class="key-select"></select>
+          <small id="originalHint" class="hint"></small>
+        </div>
+
+        <div class="key-box main">
+          <label for="songKey">Key</label>
+          <div class="key-control">
+            <button type="button" class="step" id="keyDown" title="Transpose down a half step">−</button>
+            <select id="songKey" class="key-select big"></select>
+            <button type="button" class="step" id="keyUp" title="Transpose up a half step">+</button>
+          </div>
+          <small id="keyDiff" class="hint"></small>
+        </div>
+
+        <div class="key-actions">
+          <button type="button" class="btn-ghost" id="resetKeyBtn" title="Transpose back to the original key">↺ Original key</button>
+          <label class="check"><input type="checkbox" id="transposeToggle" checked> Transpose chords when key changes</label>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sections (Intro, Verse, Key change, …) -->
+    <div id="sections" class="sections"></div>
+
+    <div class="add-row">
+      <button type="button" class="btn-ghost" id="addSectionBtn">＋ Add Section</button>
+      <button type="button" class="btn-ghost amber" id="addKeyChangeBtn">⬆ Add Key Change</button>
+      <button type="button" class="btn-ghost" id="suggestAllBtn" title="Fill empty sections with common progressions in the song key">💡 Suggest chords for empty sections</button>
+    </div>
+
+    <!-- Bottom save bar -->
+    <div class="save-bar">
+      <span id="saveStatus" class="save-status">New song — not saved yet</span>
+      <div>
+        <button type="button" class="btn-ghost" id="addToSetlistBtn" title="Add this song to a setlist">📋 Add to setlist</button>
+        <button type="button" class="btn-ghost play" id="playBtn" title="Play along, sync chords to your song file, or use a metronome">▶ Play / Sync</button>
+        <button type="button" class="btn-danger" id="deleteBtn" hidden>Delete</button>
+        <button type="button" class="btn-amber" id="saveBtn">💾 Save Song</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Section name suggestions -->
+<datalist id="sectionNames">
+  <option value="Intro"><option value="Verse"><option value="Verse 1"><option value="Verse 2">
+  <option value="Pre-Chorus"><option value="Chorus"><option value="Post-Chorus"><option value="Bridge">
+  <option value="Instrumental"><option value="Interlude"><option value="Vamp"><option value="Spontaneous"><option value="Outro"><option value="Ending"><option value="Tag">
+</datalist>
+
+<div id="toast" class="toast"></div>
+
+<!-- ============ Import chords (link or paste) ============ -->
+<div id="importModal" class="modal" hidden>
+  <div class="modal-card wide">
+    <div class="modal-head">
+      <h2>📥 Import chords</h2>
+      <button type="button" class="btn-ghost small" id="importClose">✕</button>
+    </div>
+    <label class="m-label" for="importUrl">Paste a link to a chord page</label>
+    <div class="m-row">
+      <input type="url" id="importUrl" class="m-input" placeholder="https://… (from Chrome)">
+      <button type="button" class="btn-amber" id="importFetch">Get chords</button>
+    </div>
+    <div id="importUrlNote" class="hint">Needs internet. If a website blocks it, open the page in Chrome, select the chords, copy, and paste them below.</div>
+
+    <label class="m-label" for="importText">…or paste the chord sheet text</label>
+    <textarea id="importText" class="m-text" rows="8" spellcheck="false" placeholder="[Intro]
+G  D/F#  Em  C
+
+[Verse 1]
+G            D/F#
+The greatest day in history…"></textarea>
+    <div class="m-row">
+      <button type="button" class="btn-ghost" id="importParse">🔍 Find chords</button>
+      <span id="importStatus" class="hint inline"></span>
+    </div>
+
+    <div id="importPreview" class="imp-preview"></div>
+
+    <div class="modal-foot">
+      <button type="button" class="btn-ghost" id="importApplyNew" disabled>＋ Add as a new song</button>
+      <button type="button" class="btn-amber" id="importApply" disabled>Put in this song</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Setlist editor ============ -->
+<div id="setlistModal" class="modal" hidden>
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2>📋 Setlist</h2>
+      <button type="button" class="btn-ghost small" id="slClose">✕</button>
+    </div>
+    <input type="text" id="slName" class="m-input" maxlength="100" placeholder="Name, e.g. Sunday Service – Nov 16">
+    <div class="sl-count" id="slCount">0 / 10 songs</div>
+    <ol id="slSongs" class="sl-songs"></ol>
+    <div class="m-row">
+      <select id="slAddSelect" class="m-input"></select>
+      <button type="button" class="btn-ghost" id="slAddBtn">＋ Add</button>
+    </div>
+    <div class="hint">Drag ⠿ or use ↑ ↓ to change the order. Tap a song to open it.</div>
+    <div class="modal-foot">
+      <button type="button" class="btn-danger" id="slDelete" hidden>Delete</button>
+      <button type="button" class="btn-ghost play" id="slPlay">▶ Play setlist</button>
+      <button type="button" class="btn-amber" id="slSave">💾 Save setlist</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Pick a setlist ============ -->
+<div id="pickSetlistModal" class="modal" hidden>
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2>📋 Add to setlist</h2>
+      <button type="button" class="btn-ghost small" id="pickClose">✕</button>
+    </div>
+    <ul id="pickList" class="pick-list"></ul>
+    <div class="modal-foot">
+      <button type="button" class="btn-amber" id="pickNew">＋ New setlist with this song</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Play / Sync mode (works offline) ============ -->
+<div id="player" class="player" hidden>
+  <div class="pl-top">
+    <div>
+      <div class="pl-title" id="plTitle"></div>
+      <div class="pl-sub" id="plSub"></div>
+    </div>
+    <button type="button" class="btn-ghost" id="plClose">✕ Close <small>(Esc)</small></button>
+  </div>
+
+  <div id="plSetlist" class="pl-setlist" hidden>
+    <span id="plSetName"></span>
+    <span class="pl-set-nav">
+      <button type="button" class="btn-ghost small" id="plSetPrev">◀ Prev</button>
+      <button type="button" class="btn-ghost small amber" id="plSetNext">Next ▶</button>
+    </span>
+  </div>
+
+  <div class="pl-tabs">
+    <button type="button" class="tab active" data-mode="audio">🎧 Sync to song file</button>
+    <button type="button" class="tab" data-mode="metro">🥁 Metronome (BPM)</button>
+  </div>
+
+  <div class="pl-panel" data-panel="audio">
+    <div class="pl-row">
+      <label class="btn-ghost file">📂 Load song file (MP3)
+        <input type="file" id="plFile" accept="audio/*" hidden>
+      </label>
+      <span id="plFileName" class="hint inline"></span>
+    </div>
+    <audio id="plAudio" controls preload="auto"></audio>
+    <div class="pl-row">
+      <button type="button" class="btn-amber" id="plRec">● Record timing</button>
+      <button type="button" class="btn-ghost" id="plUndo" title="Undo last tap (Backspace)">↶ Undo</button>
+      <button type="button" class="btn-ghost" id="plClear">Clear timing</button>
+    </div>
+    <div id="plRecStatus" class="hint"></div>
+  </div>
+
+  <div class="pl-panel" data-panel="metro" hidden>
+    <div class="pl-row">
+      <label class="pl-field">BPM <input type="number" id="plBpm" min="30" max="300" step="1" placeholder="e.g. 139"></label>
+      <button type="button" class="btn-ghost" id="plTapTempo">Tap tempo</button>
+      <label class="pl-field">Beats per chord
+        <select id="plBeats"><option>1</option><option>2</option><option>3</option><option selected>4</option><option>6</option><option>8</option></select>
+      </label>
+      <label class="check"><input type="checkbox" id="plClick" checked> Click sound</label>
+      <button type="button" class="btn-amber" id="plMetroStart">▶ Start</button>
+    </div>
+    <div class="hint">Starts from the selected chord with a 1-bar count-in. Tip: write a chord twice (e.g. <code>G G D C</code>) to hold it longer.</div>
+  </div>
+
+  <div id="plWarn" class="alert warn" hidden>⚠️ You changed the chords after recording the timing. Click the chord where it goes off and press Record to re-time from there.</div>
+
+  <div class="pl-now">
+    <div>
+      <div class="now-label" id="plNowLabel">NOW</div>
+      <div id="plNow" class="now-chord">–</div>
+    </div>
+    <div class="next-box"><span>NEXT</span><b id="plNext">–</b></div>
+    <div id="plBeat" class="beat-dots"></div>
+  </div>
+
+  <button type="button" id="plTap" class="tap-btn" hidden>TAP <small>Space</small></button>
+
+  <div id="plSheet" class="pl-sheet"></div>
+</div>
+
+<script src="js/library.js"></script>
+<script src="js/local-store.js"></script>
+<script src="js/home.js"></script>
+<script src="js/player.js"></script>
+<script src="js/setlist.js"></script>
+<script src="js/import.js"></script>
+<script>
+  /* Install as an app + work offline */
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  }
+  const badge = document.getElementById('netBadge');
+  const net = () => { badge.textContent = navigator.onLine ? '✓ Saved on this phone' : '📴 Offline — still works'; };
+  addEventListener('online', net); addEventListener('offline', net); net();
+</script>
+</body>
+</html>
